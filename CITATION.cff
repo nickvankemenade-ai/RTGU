@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: "RTGU: Recursive Transitional Gated Unit — Reference Implementation"
+message: "If you use this code, please cite it as below."
+type: software
+authors:
+  - family-names: "van Kemenade"
+    given-names: "Nick"
+repository-code: "https://github.com/nickvankemenade-ai/RTGU"
+version: "0.1.0"
+date-released: "2025-08-15"
+preferred-citation:
+  type: article
+  title: "Recursive Transitional Gated Unit (RTGU): A Novel Recurrent Architecture"
+  authors:
+    - family-names: "van Kemenade"
+      given-names: "Nick"
+  year: 2025
