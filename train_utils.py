@@ -49,7 +49,7 @@ def eval_epoch(model, loader, criterion, device, log=False):
                 attn_mask = None
 
             input_ids, labels = input_ids.to(device), labels.to(device)
-            outputs = model(input_ids, attn_mask)
+            outputs = model(input_ids)
             loss = criterion(outputs, labels)
 
             total_loss += loss.item() * input_ids.size(0)
