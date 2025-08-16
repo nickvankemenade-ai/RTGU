@@ -2,7 +2,7 @@
 
 Reference implementation for the Recursive Transitional Gated Unit (RTGU) introduced in:
 
-> Nick van Kemenade. *Recursive Transitional Gated Unit (RTGU): A Novel Recurrent Architecture Demonstrating Empirical Superiority over LSTM*, 2025.
+> Nick van Kemenade. *Recursive Transitional Gated Unit (RTGU): A Novel Recurrent Architecture Demonstrating Empirical Superiority over LSTM and GRU*, 2025.
 
 This repository contains:
 - RTGU cell implementation.
@@ -29,3 +29,4 @@ pip install -r requirements.txt
 
 # to execute, run
 python main.py
+
