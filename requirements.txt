@@ -4,4 +4,3 @@ transformers
 pyyaml
 numpy>=1.26
 tqdm
-tslearn
