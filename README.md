@@ -12,7 +12,7 @@ This repository contains:
 
 ---
 
-## Installation
+## Installation and Usage
 
 I recommend Python 3.10.
 
@@ -24,3 +24,8 @@ source .venv/bin/activate   # Linux/Mac
 
 # install dependencies
 pip install -r requirements.txt
+
+# edit config/hyperparams.yaml to configure models
+
+# to execute, run
+python main.py
