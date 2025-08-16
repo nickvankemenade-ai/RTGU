@@ -24,6 +24,3 @@ source .venv/bin/activate   # Linux/Mac
 
 # install dependencies
 pip install -r requirements.txt
-
-# (optional) install package in editable mode
-pip install -e .
