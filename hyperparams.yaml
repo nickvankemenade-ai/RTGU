@@ -1,0 +1,46 @@
+IMDB:
+  LSTM:
+    embed_dim: 128
+    hidden_dim: 128
+    num_classes: 2
+    lr: 0.001
+    epochs: 5
+    batch_size: 32
+
+  GRU:
+    embed_dim: 128
+    hidden_dim: 128
+    num_classes: 2
+    lr: 0.001
+    epochs: 5
+    batch_size: 32
+
+  RTGU:
+    embed_dim: 128
+    hidden_dim: 128
+    num_classes: 2
+    lr: 0.001
+    epochs: 5
+    batch_size: 32
+
+ECG:
+  LSTM:
+    hidden_dim: 128
+    num_classes: 5
+    lr: 0.001
+    epochs: 5
+    batch_size: 32
+
+  GRU:
+    hidden_dim: 128
+    num_classes: 5
+    lr: 0.001
+    epochs: 5
+    batch_size: 32
+
+  RTGU:
+    hidden_dim: 128
+    num_classes: 5
+    lr: 0.001
+    epochs: 5
+    batch_size: 32
