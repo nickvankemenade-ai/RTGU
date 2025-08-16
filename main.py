@@ -5,7 +5,7 @@ from torch import nn, optim
 
 # Datasets
 from datasets_dir.imdb_dataset import IMDBDataset
-from datasets_dir.ecg_dataset import ECGDataset
+from datasets_dir.wikitext_dataset import WikiTextDataset
 
 # Models
 from models.lstm import LSTMClassifier
@@ -13,56 +13,140 @@ from models.gru import GRUClassifier
 from models.rtgu import RTGU
 
 # Training utils
-from train_utils import train_epoch, eval_epoch, setup_results_file, log_results, count_params
+from train_utils import setup_results_file, log_results, count_params
+
+
+def _get_logits(maybe_tuple):
+    return maybe_tuple[0] if isinstance(maybe_tuple, tuple) else maybe_tuple
+
+
+def train_epoch(model, loader, optimizer, criterion, device, is_lm=False, vocab_size=None, clip=None):
+    model.train()
+    total_loss, total_correct, total_tokens = 0.0, 0, 0
+    total_batches = 0
+    import time
+    start_time = time.time()
+
+    for batch in loader:
+        optimizer.zero_grad()
+
+        if is_lm:  # language modeling
+            x = batch.to(device)               # (B, T+1)
+            inputs = x[:, :-1]
+            targets = x[:, 1:].contiguous()
+            logits = _get_logits(model(inputs))  # (B, T, V)
+            loss = criterion(logits.reshape(-1, vocab_size), targets.reshape(-1))
+        else:  # classification (supports (x, y) or (x, attn_mask, y))
+            if isinstance(batch, (list, tuple)) and len(batch) == 3:
+                inputs, attn_mask, labels = [b.to(device) for b in batch]
+                logits = model(inputs, attention_mask=attn_mask)
+            else:
+                inputs, labels = [b.to(device) for b in batch]
+                logits = model(inputs)
+            loss = criterion(logits, labels)
+            preds = logits.argmax(dim=1)
+            total_correct += (preds == labels).sum().item()
+            total_tokens += labels.numel()
+
+        loss.backward()
+        if clip is not None:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+        optimizer.step()
+
+        total_loss += loss.item()
+        total_batches += 1
+
+    elapsed = time.time() - start_time
+    avg_loss = total_loss / max(1, total_batches)
+    if is_lm:
+        ppl = float(torch.exp(torch.tensor(avg_loss)))
+        return avg_loss, ppl, elapsed
+    else:
+        acc = total_correct / max(1, total_tokens)
+        return avg_loss, acc, elapsed
+
+
+def eval_epoch(model, loader, criterion, device, is_lm=False, vocab_size=None):
+    model.eval()
+    total_loss, total_correct, total_tokens = 0.0, 0, 0
+    total_batches = 0
+    import time
+    start_time = time.time()
+
+    with torch.no_grad():
+        for batch in loader:
+            if is_lm:
+                x = batch.to(device)
+                inputs = x[:, :-1]
+                targets = x[:, 1:].contiguous()
+                logits = _get_logits(model(inputs))
+                loss = criterion(logits.reshape(-1, vocab_size), targets.reshape(-1))
+            else:
+                if isinstance(batch, (list, tuple)) and len(batch) == 3:
+                    inputs, attn_mask, labels = [b.to(device) for b in batch]
+                    logits = model(inputs, attention_mask=attn_mask)
+                else:
+                    inputs, labels = [b.to(device) for b in batch]
+                    logits = model(inputs)
+                loss = criterion(logits, labels)
+                preds = logits.argmax(dim=1)
+                total_correct += (preds == labels).sum().item()
+                total_tokens += labels.numel()
+
+            total_loss += loss.item()
+            total_batches += 1
+
+    elapsed = time.time() - start_time
+    avg_loss = total_loss / max(1, total_batches)
+    if is_lm:
+        ppl = float(torch.exp(torch.tensor(avg_loss)))
+        return avg_loss, ppl, elapsed
+    else:
+        acc = total_correct / max(1, total_tokens)
+        return avg_loss, acc, elapsed
 
 
 def run_experiment(dataset_name, model_name, params, device, results_file, log=False):
     # ---- Dataset selection ----
-    if dataset_name == "IMDB":
+    if dataset_name.upper() == "IMDB":
         train_ds = IMDBDataset(split="train")
-        test_ds = IMDBDataset(split="test")
+        test_ds  = IMDBDataset(split="test")
         train_loader = DataLoader(train_ds, batch_size=params["batch_size"], shuffle=True)
-        test_loader = DataLoader(test_ds, batch_size=params["batch_size"])
-        is_ecg = False
-        vocab_size = 30522  # BERT uncased vocab
-    elif dataset_name == "ECG":
-        train_ds = ECGDataset(split="train")
-        test_ds = ECGDataset(split="test")
-        train_loader = DataLoader(train_ds, batch_size=params["batch_size"], shuffle=True)
-        test_loader = DataLoader(test_ds, batch_size=params["batch_size"])
-        is_ecg = True
-        vocab_size = None
+        test_loader  = DataLoader(test_ds,  batch_size=params["batch_size"])
+        is_lm = False
+        vocab_size = 30522  # BERT uncased vocab for our Embedding
+        num_classes = params["num_classes"]
+
+    elif dataset_name.upper() == "WIKITEXT2":
+        seq_len = params.get("seq_len", 128)  # context length
+        # Build vocab on train, reuse on validation
+        train_ds = WikiTextDataset(split="train", block_size=seq_len)
+        test_ds  = WikiTextDataset(split="validation", block_size=seq_len, vocab=train_ds.vocab)
+        train_loader = DataLoader(train_ds, batch_size=params["batch_size"], shuffle=True, drop_last=True)
+        test_loader  = DataLoader(test_ds,  batch_size=params["batch_size"], drop_last=True)
+        is_lm = True
+        vocab_size = train_ds.vocab_size
+        num_classes = vocab_size
+
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
 
     # ---- Model selection ----
+    model_kwargs = dict(
+        vocab_size=vocab_size,
+        embed_dim=params.get("embed_dim", 256),
+        hidden_dim=params["hidden_dim"],
+        num_layers=params.get("num_layers", 2),
+        num_classes=num_classes,
+        is_lm=is_lm
+    )
+
     if model_name == "LSTM":
-        model = LSTMClassifier(
-            embed_dim=params.get("embed_dim", 1),   # only IMDB specifies this
-            hidden_dim=params["hidden_dim"],
-            num_classes=params["num_classes"],
-            vocab_size=vocab_size if not is_ecg else None,
-            is_ecg=is_ecg
-        ).to(device)
-
+        model = LSTMClassifier(**model_kwargs).to(device)
     elif model_name == "GRU":
-        model = GRUClassifier(
-            embed_dim=params.get("embed_dim", 1),
-            hidden_dim=params["hidden_dim"],
-            num_classes=params["num_classes"],
-            vocab_size=vocab_size if not is_ecg else None,
-            is_ecg=is_ecg
-        ).to(device)
-
+        model = GRUClassifier(**model_kwargs).to(device)
     elif model_name == "RTGU":
-        model = RTGU(
-            embed_dim=params.get("embed_dim", 1),
-            hidden_dim=params["hidden_dim"],
-            num_classes=params["num_classes"],
-            vocab_size=vocab_size if not is_ecg else None,
-            is_ecg=is_ecg
-        ).to(device)
-
+        model = RTGU(**model_kwargs).to(device)
     else:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -73,32 +157,44 @@ def run_experiment(dataset_name, model_name, params, device, results_file, log=F
 
     # ---- Training loop ----
     for epoch in range(1, params["epochs"] + 1):
-        train_loss, train_acc, train_time = train_epoch(model, train_loader, optimizer, criterion, device, log=log)
-        val_loss, val_acc, val_time = eval_epoch(model, test_loader, criterion, device, log=log)
-
-        print(
-            f"[{dataset_name}] {model_name} Epoch {epoch} | "
-            f"Train Loss: {train_loss:.4f} Acc: {train_acc:.4f} | "
-            f"Val Loss: {val_loss:.4f} Acc: {val_acc:.4f} | "
-            f"Train Time: {train_time:.2f}s Val Time: {val_time:.2f}s"
+        train_loss, train_metric, train_time = train_epoch(
+            model, train_loader, optimizer, criterion, device,
+            is_lm=is_lm, vocab_size=vocab_size, clip=params.get("clip", None)
+        )
+        val_loss, val_metric, val_time = eval_epoch(
+            model, test_loader, criterion, device,
+            is_lm=is_lm, vocab_size=vocab_size
         )
 
-        log_results(results_file, dataset_name, model_name, epoch,
-                    train_loss, train_acc, val_loss, val_acc, train_time, val_time)
+        if is_lm:
+            print(
+                f"[{dataset_name}] {model_name} Epoch {epoch} | "
+                f"Train Loss: {train_loss:.4f} PPL: {train_metric:.2f} | "
+                f"Val Loss: {val_loss:.4f} PPL: {val_metric:.2f} | "
+                f"Train Time: {train_time:.2f}s Val Time: {val_time:.2f}s"
+            )
+        else:
+            print(
+                f"[{dataset_name}] {model_name} Epoch {epoch} | "
+                f"Train Loss: {train_loss:.4f} Acc: {train_metric:.4f} | "
+                f"Val Loss: {val_loss:.4f} Acc: {val_metric:.4f} | "
+                f"Train Time: {train_time:.2f}s Val Time: {val_time:.2f}s"
+            )
+
+        log_results(
+            results_file, dataset_name, model_name, epoch,
+            train_loss, train_metric, val_loss, val_metric, train_time, val_time
+        )
 
 
 if __name__ == "__main__":
-    # ---- Device ----
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # ---- Load hyperparams from YAML ----
     with open("config/hyperparams.yaml", "r") as f:
         hyperparams = yaml.safe_load(f)
 
-    # ---- Setup results file ----
     results_file = setup_results_file(path="results", filename="results.csv")
 
-    # ---- Run experiments ----
     for dataset_name, models in hyperparams.items():
         for model_name, params in models.items():
             run_experiment(dataset_name, model_name, params, device, results_file, log=True)
