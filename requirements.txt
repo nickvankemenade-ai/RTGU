@@ -1,0 +1,6 @@
+torch>=2.2
+datasets
+transformers
+pyyaml
+numpy>=1.26
+tqdm
