@@ -2,13 +2,15 @@ import torch
 import torch.nn as nn
 
 class RTGUCell(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, reset_params=False):
         super().__init__()
         self.hidden_size = hidden_size
         self.linear_r = nn.Linear(input_size + hidden_size, hidden_size)
         self.linear_z = nn.Linear(input_size + hidden_size, hidden_size)
         self.linear_h = nn.Linear(input_size + hidden_size, hidden_size)
-        self.reset_parameters()
+
+        if reset_params:
+            self.reset_parameters()
 
     def reset_parameters(self):
         nn.init.orthogonal_(self.linear_r.weight)
@@ -29,7 +31,7 @@ class RTGUCell(nn.Module):
 
 class RTGU(nn.Module):
     def __init__(self, vocab_size, embed_dim=256, hidden_dim=256,
-                 num_layers=2, num_classes=2, is_lm=False):
+                 num_layers=2, num_classes=2, is_lm=False, reset_params=False):
         super().__init__()
         self.is_lm = is_lm
         self.hidden_size = hidden_dim
@@ -37,7 +39,7 @@ class RTGU(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim)
 
         self.cells = nn.ModuleList(
-            [RTGUCell(embed_dim if i == 0 else hidden_dim, hidden_dim)
+            [RTGUCell(embed_dim if i == 0 else hidden_dim, hidden_dim, reset_params=reset_params)
              for i in range(num_layers)]
         )
 
