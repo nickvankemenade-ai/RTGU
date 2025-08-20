@@ -1,46 +1,55 @@
 IMDB:
   LSTM:
-    embed_dim: 128
-    hidden_dim: 128
+    embed_dim: 64
+    hidden_dim: 64
     num_classes: 2
     lr: 0.001
-    epochs: 5
+    epochs: 10
     batch_size: 32
 
   GRU:
-    embed_dim: 128
-    hidden_dim: 128
+    embed_dim: 64
+    hidden_dim: 64
     num_classes: 2
     lr: 0.001
-    epochs: 5
+    epochs: 10
     batch_size: 32
 
   RTGU:
-    embed_dim: 128
-    hidden_dim: 128
+    embed_dim: 64
+    hidden_dim: 64
     num_classes: 2
     lr: 0.001
-    epochs: 5
+    epochs: 10
     batch_size: 32
 
-ECG:
+WikiText2:
   LSTM:
+    embed_dim: 128
     hidden_dim: 128
-    num_classes: 5
-    lr: 0.001
-    epochs: 5
-    batch_size: 32
+    num_layers: 2
+    lr: 0.002
+    epochs: 25
+    batch_size: 64
+    seq_len: 128
+    clip: 0.25
 
   GRU:
+    embed_dim: 128
     hidden_dim: 128
-    num_classes: 5
-    lr: 0.001
-    epochs: 5
-    batch_size: 32
+    num_layers: 2
+    lr: 0.002
+    epochs: 25
+    batch_size: 64
+    seq_len: 128
+    clip: 0.25
 
   RTGU:
+    embed_dim: 128
     hidden_dim: 128
-    num_classes: 5
-    lr: 0.001
-    epochs: 5
-    batch_size: 32
+    num_layers: 2
+    lr: 0.002
+    epochs: 25
+    batch_size: 64
+    seq_len: 128
+    clip: 0.25
