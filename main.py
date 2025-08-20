@@ -36,10 +36,10 @@ def train_epoch(model, loader, optimizer, criterion, device, is_lm=False, vocab_
             targets = x[:, 1:].contiguous()
             logits = _get_logits(model(inputs))  # (B, T, V)
             loss = criterion(logits.reshape(-1, vocab_size), targets.reshape(-1))
-        else:  # classification (supports (x, y) or (x, attn_mask, y))
+        else:
             if isinstance(batch, (list, tuple)) and len(batch) == 3:
-                inputs, attn_mask, labels = [b.to(device) for b in batch]
-                logits = model(inputs, attention_mask=attn_mask)
+                inputs, _, labels = [b.to(device) for b in batch]
+                logits = model(inputs)
             else:
                 inputs, labels = [b.to(device) for b in batch]
                 logits = model(inputs)
@@ -83,8 +83,8 @@ def eval_epoch(model, loader, criterion, device, is_lm=False, vocab_size=None):
                 loss = criterion(logits.reshape(-1, vocab_size), targets.reshape(-1))
             else:
                 if isinstance(batch, (list, tuple)) and len(batch) == 3:
-                    inputs, attn_mask, labels = [b.to(device) for b in batch]
-                    logits = model(inputs, attention_mask=attn_mask)
+                    inputs, _, labels = [b.to(device) for b in batch]
+                    logits = model(inputs)
                 else:
                     inputs, labels = [b.to(device) for b in batch]
                     logits = model(inputs)
@@ -116,6 +116,7 @@ def run_experiment(dataset_name, model_name, params, device, results_file, log=F
         is_lm = False
         vocab_size = 30522  # BERT uncased vocab for our Embedding
         num_classes = params["num_classes"]
+        reset_params = True
 
     elif dataset_name.upper() == "WIKITEXT2":
         seq_len = params.get("seq_len", 128)  # context length
@@ -127,6 +128,7 @@ def run_experiment(dataset_name, model_name, params, device, results_file, log=F
         is_lm = True
         vocab_size = train_ds.vocab_size
         num_classes = vocab_size
+        reset_params = False
 
     else:
         raise ValueError(f"Unknown dataset: {dataset_name}")
@@ -146,7 +148,7 @@ def run_experiment(dataset_name, model_name, params, device, results_file, log=F
     elif model_name == "GRU":
         model = GRUClassifier(**model_kwargs).to(device)
     elif model_name == "RTGU":
-        model = RTGU(**model_kwargs).to(device)
+        model = RTGU(**model_kwargs, reset_params=reset_params).to(device)
     else:
         raise ValueError(f"Unknown model: {model_name}")
 
@@ -193,8 +195,13 @@ if __name__ == "__main__":
     with open("config/hyperparams.yaml", "r") as f:
         hyperparams = yaml.safe_load(f)
 
-    results_file = setup_results_file(path="results", filename="results.csv")
-
     for dataset_name, models in hyperparams.items():
+        if dataset_name.upper() == "IMDB":
+            results_file = setup_results_file(path="results", filename="imdb_results.csv")
+        elif dataset_name.upper() == "WIKITEXT2":
+            results_file = setup_results_file(path="results", filename="wikitext2_results.csv")
+        else:
+            raise ValueError(f"Unknown dataset: {dataset_name}")
+
         for model_name, params in models.items():
             run_experiment(dataset_name, model_name, params, device, results_file, log=True)
