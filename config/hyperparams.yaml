@@ -4,7 +4,7 @@ IMDB:
     hidden_dim: 64
     num_classes: 2
     lr: 0.001
-    epochs: 10
+    epochs: 0
     batch_size: 32
 
   GRU:
@@ -12,7 +12,7 @@ IMDB:
     hidden_dim: 64
     num_classes: 2
     lr: 0.001
-    epochs: 10
+    epochs: 0
     batch_size: 32
 
   RTGU:
@@ -20,13 +20,13 @@ IMDB:
     hidden_dim: 64
     num_classes: 2
     lr: 0.001
-    epochs: 10
+    epochs: 0
     batch_size: 32
 
 WikiText2:
   LSTM:
-    embed_dim: 128
-    hidden_dim: 128
+    embed_dim: 512
+    hidden_dim: 512
     num_layers: 2
     lr: 0.002
     epochs: 25
@@ -35,8 +35,8 @@ WikiText2:
     clip: 0.25
 
   GRU:
-    embed_dim: 128
-    hidden_dim: 128
+    embed_dim: 512
+    hidden_dim: 512
     num_layers: 2
     lr: 0.002
     epochs: 25
@@ -45,8 +45,8 @@ WikiText2:
     clip: 0.25
 
   RTGU:
-    embed_dim: 128
-    hidden_dim: 128
+    embed_dim: 512
+    hidden_dim: 512
     num_layers: 2
     lr: 0.002
     epochs: 25
